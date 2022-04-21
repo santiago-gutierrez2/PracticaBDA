@@ -8,9 +8,12 @@
 # Data de creación: 19-01-2021
 #
 import sys
+from turtle import update
+from webbrowser import get
 import psycopg2
 import psycopg2.extras
 import psycopg2.errorcodes
+import psycopg2.extensions
 
 
 ## ------------------------------------------------------------
@@ -72,6 +75,10 @@ def drop_table_artigo(conn):
 
 ## ------------------------------------------------------------
 def insert_row_artigo(conn):
+
+    # Nivel de Aislamiento
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+
     scod = input("Código: ")
     cod = None if scod=="" else int(scod)
     nom = input("Nome: ")
@@ -86,7 +93,7 @@ def insert_row_artigo(conn):
         try:
             cur.execute(sentencia_insert,(cod, nom, prezo))
             conn.commit()
-            print("Artigo creado")
+            print("Artigo insertado")
         except psycopg2.Error as e:
             if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
                 print("Erro: Taboa non existe")
@@ -97,9 +104,63 @@ def insert_row_artigo(conn):
                     print("Erro: o código de artigo é obligatorio")
                 else:
                     print("Erro: o nome de artigo é  obrigatorio")
+            elif e.pgcode == psycopg2.errorcodes.CHECK_VIOLATION:
+                print("ERRO: o prezo debe ser positivo.")
             else:
                 print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
             conn.rollback()
+
+## ------------------------------------------------------------
+def show_row(conn, control_tx=True): #exercicio 19 e 16
+    #devolver None
+
+    if control_tx:
+        conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+    else:
+        conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_DEFAULT
+
+    scod = input("Codigo do artigo: ")
+    cod = None if scod =="" else int(scod)
+
+    sentencia_select = """select nomart, prezoart from artigo where codart=%s"""
+
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        try:
+            cur.execute(sentencia_select,(cod,))
+            row = cur.fetchone()
+            retval=None 
+            conn.commit()
+            if row:
+                retval= cod
+                prezo = row['prezoart'] if row['prezoart'] else "Descoñecido"
+                print(f"Codigo: {cod}; Nome: {row['nomart']}; Prezo: {prezo}")
+            else:
+                print("O artigo non existe")
+            if control_tx:
+                conn.commit()
+            return retval
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
+                print("Erro: Taboa non existe")
+            else:
+                print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
+            if control_tx:
+                conn.rollback()
+            return None
+
+## ------------------------------------------------------------
+def update_price(conn): #exercicio 21, 22 e 23
+    cod = show_row(conn, False)
+
+    if cod is None:
+        conn.rollback()
+        return
+    
+    sinc = input("introducir incremento de prezo (%): ")
+    inc = 0 if sinc=="" else float(sinc)
+
+    
+
 
 ## ------------------------------------------------------------
 def menu(conn):
@@ -112,6 +173,7 @@ def menu(conn):
 1 - Crear táboa artigo
 2 - Eliminar taboa artigo 
 3 - Insert en artigo  
+4 - Mostrar informacion dun artigo
 q - Saír   
 """
     while True:
@@ -125,6 +187,11 @@ q - Saír
             drop_table_artigo(conn) 
         elif tecla == '3':
             insert_row_artigo(conn)
+        elif tecla == '4':
+            show_row(conn)
+        elif tecla == '5':
+            update_price()
+
             
             
 ## ------------------------------------------------------------
