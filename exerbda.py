@@ -150,6 +150,9 @@ def show_row(conn, control_tx=True): #exercicio 19 e 16
 
 ## ------------------------------------------------------------
 def update_price(conn): #exercicio 21, 22 e 23
+    
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+    
     cod = show_row(conn, False)
 
     if cod is None:
@@ -158,6 +161,21 @@ def update_price(conn): #exercicio 21, 22 e 23
     
     sinc = input("introducir incremento de prezo (%): ")
     inc = 0 if sinc=="" else float(sinc)
+
+    sql = "update artigo set prezoart = prezoart + prezoart * %(porc)s / 100 where codart = %(cod)s"
+
+    with conn.cursor() as cur:
+        try:
+            cur.execute(sql, {'cod': cod, 'porc': inc})
+            input("pulse una tecla")
+            conn.commit()
+            print("Prexo actualizado")
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.CHECK_VIOLATION:
+                print("O prezo  debe ser positivo")
+            else:
+                print(f"Erro xenerico {e.pgcode}: {e.pgerror}")
+
 
     
 
@@ -174,6 +192,7 @@ def menu(conn):
 2 - Eliminar taboa artigo 
 3 - Insert en artigo  
 4 - Mostrar informacion dun artigo
+5 - Actualizar prezo do artigo
 q - Saír   
 """
     while True:
