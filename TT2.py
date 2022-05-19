@@ -38,53 +38,6 @@ def disconnect_db(conn):
     conn.close()
 
 
-## Operaciones para la Entidad Artista
-## ------------------------------------------------------------
-def create_table_Artista(conn):
-    """
-    Crea a táboa artista (codart, nome, verificacion, data_nacemento, cidade_orixen)
-    :param conn: a conexión aberta á bd
-    :return: Nada
-    """
-
-    #Verificación la podríamos poner como default False pero depende de la lógica
-    with conn.cursor() as cur:
-        try:
-            sentencia_create =  """
-                                    create table artista(
-                                                codart int constraint pk_artista primary key,
-                                                nome varchar(30) not null,
-                                                verification bit not null,
-                                                data_nacemento date,
-                                                cidade_orixen varchar(50)
-                                    )   
-
-                                """
-            cur.execute(sentencia_create)
-            conn.commit()
-            print("Taboa artista creada")
-        except psycopg2.Error as e:
-            if e.pgcode == psycopg2.errorcodes.DUPLICATE_TABLE:
-                print("taboa xa existe")
-            else:
-                print(f"Erro xenérico {e.pgcode}; {e.pgerror}")
-            conn.rollback()
-        
-## ------------------------------------------------------------
-def drop_table_artista(conn):
-    sentencia_drop = """Drop table artista"""
-    with conn.cursor() as cur:
-        try:
-            cur.execute(sentencia_drop)
-            conn.commit()
-            print("taboa eliminada")
-        except psycopg2.Error as e:
-            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
-                print("taboa non existe")
-            else:
-                print(f"Erro xenerico: {e.pgcode}; {e.pgerror}")
-            conn.rollback()
-
 ## ------------------------------------------------------------
 def insert_row_artista(conn):
 
