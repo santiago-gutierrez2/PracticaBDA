@@ -5,7 +5,7 @@
 # TT2.py: 
 # Práctica de python
 #
-# Autor: Adrián Castro Rodríguez (adrian.castro2@udc.es) Santiago Gutierrez Gomez (elgavilanpoyero@udm.ve)
+# Autor: Adrián Castro Rodríguez (adrian.castro2@udc.es) Santiago Gutierrez Gomez (santiago.gutierrez@udc.es)
 # Data de creación: 2-05-2021
 #
 from sqlite3 import Date
@@ -166,36 +166,6 @@ def show_row_Artista(conn, control_tx=True):
             if control_tx:
                 conn.rollback()
             return None
-
-
-# Aquí faltan los updates pero no tengo idea de si hay que hacerlos de todos
-## ------------------------------------------------------------
-#def update_price(conn):
-    
-    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
-    
-    cod = show_row(conn, False)
-
-    if cod is None:
-        conn.rollback()
-        return
-    
-    sinc = input("introducir incremento de prezo (%): ")
-    inc = 0 if sinc=="" else float(sinc)
-
-    sql = "update artigo set prezoart = prezoart + prezoart * %(porc)s / 100 where codart = %(cod)s"
-
-    with conn.cursor() as cur:
-        try:
-            cur.execute(sql, {'cod': cod, 'porc': inc})
-            input("pulse una tecla")
-            conn.commit()
-            print("Prexo actualizado")
-        except psycopg2.Error as e:
-            if e.pgcode == psycopg2.errorcodes.CHECK_VIOLATION:
-                print("O prezo  debe ser positivo")
-            else:
-                print(f"Erro xenerico {e.pgcode}: {e.pgerror}")
 
 
     
