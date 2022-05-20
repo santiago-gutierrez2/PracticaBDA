@@ -16,6 +16,7 @@ import psycopg2.errorcodes
 import psycopg2.extensions
 
 
+
 ## ------------------------------------------------------------
 def connect_db():
     try:
@@ -120,7 +121,7 @@ def show_album(conn, control_tx=True):
                         f"Código de artista que realizou o albúm: {row['cod_art_owner']}")
                 value = row['cod_alb']
             else:
-                print(f"No existe ningún álbum por este código: {cod_alb}")
+                print(f"Non existe ningún álbum por este código: {cod_alb}")
 
 
             cur.execute("Select cod_song, titulo, duracion, ano_creacion, explicito, num_reproducciones, xenero, cod_album from cancion where cod_album=%(cod_alb)s",{'cod_alb': cod_alb})
@@ -132,18 +133,18 @@ def show_album(conn, control_tx=True):
                         f"Género: {row['xenero']}, Album al que pertenece: {row['cod_album']}")
                 cantidad = cantidad + 1
             if(cantidad > 0):
-                print(f"Total de canciones que contiene le álbum: {cantidad}")
+                print(f"Total de cancions que conten o álbum: {cantidad}")
             else:
-                print(f"No existe ninguna cáncion que pertenezca a este album: {cod_alb}")
+                print(f"Non existe ningunha cáncion que pertenza a este album: {cod_alb}")
 
             if control_tx:
                 conn.commit()
             return value
         except psycopg2.Error as e:
             if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
-                print("Error: Tabla ALBUM no existe")
+                print("Erro: Tabla ALBUM non existe")
             else:
-                print(f"Error genérico: {e.pgcode}: {e.pgerror}")
+                print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
             if control_tx:
                 conn.rollback()
             return None
@@ -165,7 +166,10 @@ def insert_row_artista(conn):
     #En la verificación no compruebo si es null porque no le dejo esa opción aunque esta parte hay que mirarla
     sverification = input("O artista está verificado non (0) si (calqueira outra tecla) : ")
     verification = False if sverification==0 else True
-    sdata = input("Data de nacemento: ")
+    sdia = input("Introduce o día de nacemiento (dos cifras): ")
+    smes = input("Introduce o mes de nacemiento (dos cifras): ")
+    sano = input("Introduce o ano de nacemiento (tres cifras): ")
+    sdata = "{sdia}-{smes}-{ano}"
     data = None if sdata == "" else Date(sdata)
     city = input("Cidade de orixen: ")
     if city=="": city = None
@@ -194,6 +198,34 @@ def insert_row_artista(conn):
             conn.rollback()
 
             
+## ------------------------------------------------------------
+def update_num_reproductions(conn): #exercicio 21, 22 e 23
+    
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+    ## Aquí ellos lo que hacen es llamar a ver fila y para que muestre los datos actuales al ususario y obtener el codigo del artista
+    cod = show_song(conn, False)
+
+    if cod is None:
+        conn.rollback()
+        return
+    
+    sinc = input("introducir incremento de reproduccións (%): ")
+    inc = 0 if sinc=="" else float(sinc)
+
+    sql = "update cancion set num_reproducciones = num_reproducciones + num_reproducciones  * %(porc)s / 100 where cod_song = %(cod)s"
+
+    with conn.cursor() as cur:
+        try:
+            cur.execute(sql, {'cod': cod, 'porc': inc})
+            input("pulse unha tecla")
+            conn.commit()
+            print("reproduccións actualizadas")
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.CHECK_VIOLATION:
+                print("O prezo  debe ser positivo")
+            else:
+                print(f"Erro xenerico {e.pgcode}: {e.pgerror}")
+
 
 
 ## ------------------------------------------------------------
@@ -204,9 +236,11 @@ def menu(conn):
     """
     MENU_TEXT = """
       -- MENÚ --
-1 - Info de artista
-2 - Info de cancion
-3 - Info del album
+1 - Info do artista
+2 - Info da cancion
+3 - Info do album
+4 - Insertar artista
+6 - Actualizar o número de reproduccions
 q - Saír   
 """
     while True:
@@ -220,7 +254,10 @@ q - Saír
             show_song(conn)
         elif tecla == '3':
             show_album(conn)
-
+        elif tecla == '4':
+            insert_row_artista(conn)
+        elif tecla == '6':
+            update_num_reproductions(conn)
 
             
             
