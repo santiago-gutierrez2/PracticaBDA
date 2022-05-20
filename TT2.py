@@ -8,10 +8,8 @@
 # Autor: Adrián Castro Rodríguez (adrian.castro2@udc.es) Santiago Gutierrez Gomez (santiago.gutierrez@udc.es)
 # Data de creación: 2-05-2021
 #
-from sqlite3 import Date
+from sqlite3 import Date, Row
 import sys
-from turtle import update
-from webbrowser import get
 import psycopg2
 import psycopg2.extras
 import psycopg2.errorcodes
@@ -22,9 +20,9 @@ import psycopg2.extensions
 def connect_db():
     try:
         con=psycopg2.connect(host='localhost',
-                        user='user1',
-                        password='1234',
-                        dbname='user1')
+                        user='santi',
+                        password='destino123',
+                        dbname='santi')
         return con
     except psycopg2.OperationalError as e:
         print(f"Error conectando: {e}")
@@ -37,7 +35,68 @@ def disconnect_db(conn):
     conn.commit()
     conn.close()
 
+##-------------------------------------------------------------
+#- mostrar un artista por su codigo
+def show_artista(conn, control_tx=True):
+    try:
+        cod_art = int(input("Código artista: "))
+    except:
+        print("Error: datos inválidos")
+        return None
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        try:
+            cur.execute("Select cod_art, nome, verificacion, data_nacemento, cidade_orixen from artista where cod_art= %(cod_art)s",{'cod_art': cod_art})
+            row=cur.fetchone()
+            value = None
+            if row:
+                print(f"Nombre: {row['nome']}, Verficado?: {row['verificacion']}, "
+                        f"Fecha de nacimineto: {row['data_nacemento']}, Ciudad origen: {row['cidade_orixen']}")
+                value = row['cod_art']
+            else:
+                print(f"No existe ningún artista por este código: {cod_art}")
+            if control_tx:
+                conn.commit()
+            return value
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
+                print("Error: Tabla ARTISTA no existe")
+            else:
+                print(f"Error genérico: {e.pgcode}: {e.pgerror}")
+            if control_tx:
+                conn.rollback()
+            return None
 
+#--------------------------------------------------------------
+#- mostrar la info de una cancion por su codigo
+def show_song(conn, control_tx=True):
+    try:
+        cod_song = int(input("Código canción: "))
+    except:
+        print("Error: datos invalidos")
+        return None
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        try:
+            cur.execute("Select cod_song, titulo, duracion, ano_creacion, explicito, num_reproducciones, xenero, cod_album from cancion where cod_song=%(cod_song)s",{'cod_song': cod_song})
+            row=cur.fetchone()
+            value=None
+            if row:
+                print(f"Título: {row['titulo']}, Duración(seg): {row['duracion']}, Año creación: {row['ano_creacion']}, "
+                        f"Explícito: {row['explicito']}, Numero de reproducciones: {row['num_reproducciones']}, "
+                        f"Género: {row['xenero']}, Album al que pertenece: {row['cod_album']}")
+                value=row['cod_song']
+            else:
+                print(f"No existe ninguna cáncion con este código: {cod_song}")
+            if control_tx:
+                conn.commit()
+            return value
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
+                print("Error: Tabla CANCION no existe")
+            else:
+                print("Error genérico: {e.pgcode}: {e.pgerror}")
+            if control_tx:
+                conn.rollback()
+            return None
 ## ------------------------------------------------------------
 def insert_row_artista(conn):
 
@@ -79,50 +138,6 @@ def insert_row_artista(conn):
                 print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
             conn.rollback()
 
-## ------------------------------------------------------------
-def show_row_Artista(conn, control_tx=True):
-    #devolver None
-
-    if control_tx:
-        conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
-    else:
-        conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_DEFAULT
-
-    scod = input("Codigo de artista: ")
-    cod = None if scod =="" else int(scod)
-
-    sentencia_select = """select nome, verification, data_nacemento, cidade_orixen from artista where codart=%s"""
-
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        try:
-            cur.execute(sentencia_select,(cod))
-            row = cur.fetchone()
-            retval=None 
-            conn.commit()
-            if row:
-                retval= cod
-                nomart = row['nome']
-                verification = row['verification']  #En este caso al ser not null creo que no hace falta comprobar nada más
-                data_nac = row['data_nacemento'] if row['data_nacemento'] else "Descoñecido"
-                cidade =  row['cidade_orixen'] if row['cidade_orixen'] else "Descoñecida"
-                print(f"Codigo: {cod}; Nome: {nomart}; verificación: {verification}; Data de nacemento: {data_nac}; Cidade: {cidade} ")
-            else:
-                print("O artista non existe")
-            if control_tx:
-                conn.commit()
-            return retval
-        except psycopg2.Error as e:
-            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
-                print("Erro: Taboa non existe")
-            else:
-                print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
-            if control_tx:
-                conn.rollback()
-            return None
-
-
-    
-
 
 ## ------------------------------------------------------------
 def menu(conn):
@@ -132,11 +147,8 @@ def menu(conn):
     """
     MENU_TEXT = """
       -- MENÚ --
-1 - Crear táboa artigo
-2 - Eliminar taboa artigo 
-3 - Insert en artigo  
-4 - Mostrar informacion dun artigo
-5 - Actualizar prezo do artigo
+1 - Info de artista
+2 - Info de cancion
 q - Saír   
 """
     while True:
@@ -145,15 +157,9 @@ q - Saír
         if tecla == 'q':
             break
         elif tecla == '1':
-            create_table(conn)
+            show_artista(conn)
         elif tecla == '2':
-            drop_table_artigo(conn) 
-        elif tecla == '3':
-            insert_row_artigo(conn)
-        elif tecla == '4':
-            show_row(conn)
-        elif tecla == '5':
-            update_price()
+            show_song(conn)
 
             
             
@@ -170,3 +176,5 @@ def main():
     disconnect_db(conn)
 
 ## ------------------------------------------------------
+if __name__ == '__main__':
+    main()
