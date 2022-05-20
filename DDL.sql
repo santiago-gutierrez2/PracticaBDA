@@ -6,7 +6,7 @@ drop table artista;
 --Creación de la tabla de Artista
 create table artista(
     cod_art int constraint pk_artista primary key,
-    nome varchar(30) not null,
+    nome varchar(30) not null unique,
     verification boolean not null,
     data_nacemento date,
     cidade_orixen varchar(50)
@@ -15,7 +15,7 @@ create table artista(
 --Creación de la tabla Albúm
 create table album(
     cod_alb int constraint pk_album primary key,
-    titulo varchar(50) not null,
+    titulo varchar(50) not null unique,
     año_creacion int not null,
     cod_art_owner int,
     constraint fk_artist FOREIGN key(cod_art_owner) 
@@ -26,7 +26,7 @@ create table album(
 create table cancion(
     cod_song int constraint pk_song primary key,
     titulo varchar(50) not null,
-    duracion int not null,
+    duracion int not null constraint check_duracion check (duracion > 0),
     año_creacion int not null,
     explicito boolean not null,
     num_reproducciones int default 0,
