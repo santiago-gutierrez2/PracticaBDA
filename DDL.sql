@@ -1,4 +1,3 @@
-drop table interpreta;
 drop table cancion;
 drop table album;
 drop table artista;
@@ -29,29 +28,22 @@ create table cancion(
     duracion int not null constraint check_duracion check (duracion > 0),
     ano_creacion int not null,
     explicito boolean not null,
-    num_reproducciones int default 0,
+    num_reproducciones bigint default 0,
     xenero varchar(20),
     cod_album int,
+    cod_artist int not null,
     constraint fk_album FOREIGN key(cod_album)
-        references album(cod_alb)
-);
-
---Creación de la tabla interpreta
-create table interpreta(
-    cod_song int,
-    cod_art_owner int,
-    constraint pk_interpreta Primary key(cod_song, cod_art_owner),
-    constraint fk_cancion FOREIGN key(cod_song)
-        references cancion(cod_song),
-    constraint fk_artista FOREIGN key(cod_art_owner)
+        references album(cod_alb) deferrable initially deferred,
+    constraint fk_artista FOREIGN key(cod_artist)
         references artista(cod_art)
 );
+
 
 -- Insert de Artistas
 Insert into artista values(1, 'Santi', True, '14-02-2000', 'Maracaibo');
 Insert into artista values(2, 'adrian', True, '14-02-2000');
-Insert into artista values(3, 'mosqueira', false,null,'coruña');
+Insert into artista values(3, 'mosqueira', false, null,'coruña');
 
 --Insert de canciones
-Insert into cancion values(1, 'Time', 360, 1975, false, 1000, 'Rock psicodelico');
-Insert into cancion values(2, 'Money', 360, 1973, True);
+Insert into cancion values(1, 'Time', 360, 1975, false, 1000, 'Rock psicodelico', null, 1);
+Insert into cancion values(2, 'Money', 360, 1973, True, null, null, null, 2);
