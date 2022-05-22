@@ -10,7 +10,10 @@
 #
 from distutils.log import error
 import errno
+import imp
+from smtplib import SMTPDataError
 from sqlite3 import Date, Row
+import datetime
 import sys
 import psycopg2
 import psycopg2.extras
@@ -108,6 +111,9 @@ def show_song(conn, control_tx=True):
 ##-------------------------------------------------------------
 #- mostrar un álbum con todas sus canciones por su código por su codigo
 def show_album(conn, control_tx=True):
+
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+
     try:
         cod_alb = int(input("Código álbum: "))
     except:
@@ -129,22 +135,26 @@ def show_album(conn, control_tx=True):
             cur.execute("Select cod_song, titulo, duracion, ano_creacion, explicito, num_reproducciones, xenero, cod_album from cancion where cod_album=%(cod_alb)s",{'cod_alb': cod_alb})
             records=cur.fetchall()
             cantidad = 0
+            print("\nCanciones:")
             for row in records:
-                print(f"Título: {row['titulo']}, Duración(seg): {row['duracion']}, Año creación: {row['ano_creacion']}, "
+                print(f"\tTítulo: {row['titulo']}, Duración(seg): {row['duracion']}, Año creación: {row['ano_creacion']}, "
                         f"Explícito: {row['explicito']}, Numero de reproducciones: {row['num_reproducciones']}, "
                         f"Género: {row['xenero']}, Album al que pertenece: {row['cod_album']}")
                 cantidad = cantidad + 1
             if(cantidad > 0):
-                print(f"Total de cancions que conten o álbum: {cantidad}")
+                print(f"\nTotal de cancions que conten o álbum: {cantidad}")
             else:
-                print(f"Non existe ningunha cáncion que pertenza a este album: {cod_alb}")
+                print(f"\nNon existe ningunha cáncion que pertenza a este album: {cod_alb}")
 
             if control_tx:
                 conn.commit()
             return value
         except psycopg2.Error as e:
             if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
-                print("Erro: Tabla ALBUM non existe")
+                if '"album"' in e.pgerror:
+                    print("Erro: Tabla ALBUM non existe")
+                else:
+                    print("Erro: Tabla CANCION non existe")
             else:
                 print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
             if control_tx:
@@ -235,6 +245,7 @@ def update_verfication_artist(conn):
     cod_art = show_artista(conn,False)
     if cod_art == None:
         print("No existe el artista a cambiar su estado de verificación")
+        conn.commit()
         return
     pre_verificado = input("Verificado? (y = yes, n = no): ")
     if pre_verificado=='y':
@@ -262,7 +273,117 @@ def update_verfication_artist(conn):
                  print(f"Error genérico: {e.pgcode}: {e.pgerror}")
             conn.rollback()       
 
+## ------------------------------------------------------------
+def update_num_reproductions(conn): 
+    
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE
+    
+    cod = show_song(conn, False)
 
+    if cod is None:
+        conn.commit()
+        return
+    
+    sinc = input("introducir incremento de reproduccións (%): ")
+    inc = 0 if sinc=="" else float(sinc)
+
+    sql = "update cancion set num_reproducciones = num_reproducciones + num_reproducciones  * %(porc)s / 100 where cod_song = %(cod)s"
+
+    with conn.cursor() as cur:
+        try:
+            cur.execute(sql, {'cod': cod, 'porc': inc})
+            input("pulse unha tecla")
+            conn.commit()
+            print("reproduccións actualizadas")
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.CHECK_VIOLATION:
+                print("O prezo  debe ser positivo")
+            else:
+                print(f"Erro xenerico {e.pgcode}: {e.pgerror}")
+            conn.rollback()
+
+##-------------------------------------------------------------
+def insert_row_artista(conn):
+
+    # Nivel de Aislamiento
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+
+    scod = input("Código: ")
+    cod = None if scod=="" else int(scod)
+    nom = input("Nome: ")
+    if nom=="": nom = None
+    #En la verificación no compruebo si es null porque no le dejo esa opción aunque esta parte hay que mirarla
+    sverification = input("O artista está verificado non (0) si (calqueira outra tecla) : ")
+    verification = False if sverification==0 else True
+    sdia = int(input("Introduce o día de nacemento (duas cifras): "))
+    smes = int(input("Introduce o mes de nacemento (duas cifras): "))
+    sano = int(input("Introduce o ano de nacemento (catro cifras): "))
+    data = None
+    try:
+        data = datetime.date(sano, smes, sdia)
+    except:
+        print("Data inválida.")
+        conn.commit()
+        return
+    city = input("Cidade de orixe: ")
+    if city=="": city = None
+    
+
+    sentencia_insert = """insert into artista(cod_art, nome, verificacion, data_nacemento, cidade_orixen)
+                        values(%s, %s, %s, %s, %s)"""
+
+    with conn.cursor() as cur:
+        try:
+            cur.execute(sentencia_insert,(cod, nom, verification, data, city))
+            conn.commit()
+            print("Artista insertado")
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
+                print("Erro: Taboa ARTISTA non existe")
+            elif e.pgcode == psycopg2.errorcodes.UNIQUE_VIOLATION:
+                if '"cod_art"' in e.pgerror:
+                    print("Erro: Xa existe un artista con este código")
+                else:
+                    print("Erro: Xa existe un artista con este nome")
+            elif e.pgcode == psycopg2.errorcodes.NOT_NULL_VIOLATION:
+                if '"cod_art"' in e.pgerror:
+                    print("Erro: o código de artista é obligatorio")
+                elif '"nome"' in e.pgerror:
+                    print("Erro: o nome de artista é  obrigatorio")
+                else:
+                    print("Erro: A verficación é obrigatoria")
+            else:
+                print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
+            conn.rollback()
+
+            
+## ------------------------------------------------------------
+def update_num_reproductions(conn): 
+    
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+    ## Aquí ellos lo que hacen es llamar a ver fila y para que muestre los datos actuales al ususario y obtener el codigo del artista
+    cod = show_song(conn, False)
+
+    if cod is None:
+        conn.rollback()
+        return
+    
+    sinc = input("introducir incremento de reproduccións (%): ")
+    inc = 0 if sinc=="" else float(sinc)
+
+    sql = "update cancion set num_reproducciones = num_reproducciones + num_reproducciones  * %(porc)s / 100 where cod_song = %(cod)s"
+
+    with conn.cursor() as cur:
+        try:
+            cur.execute(sql, {'cod': cod, 'porc': inc})
+            input("pulse unha tecla")
+            conn.commit()
+            print("reproduccións actualizadas")
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.CHECK_VIOLATION:
+                print("O prezo  debe ser positivo")
+            else:
+                print(f"Erro xenerico {e.pgcode}: {e.pgerror}")
 
 ## ------------------------------------------------------------
 def menu(conn):
@@ -276,6 +397,10 @@ def menu(conn):
 2 - Info de cancion
 3 - Insertar canción
 4 - Actuaizar estado de verificación de un artista
+5 - Mostrar Album (con canciones)
+6 - Insertar artista
+7 - Actualizar numero de reproducciones (según datos actuales)
+8 - Crear Album (con canciones)
 q - Saír   
 """
     while True:
@@ -291,11 +416,11 @@ q - Saír
             insert_cancion(conn)
         elif tecla == '4':
             update_verfication_artist(conn)
-        elif tecla == '3':
+        elif tecla == '5':
             show_album(conn)
-        elif tecla == '4':
-            insert_row_artista(conn)
         elif tecla == '6':
+            insert_row_artista(conn)
+        elif tecla == '7':
             update_num_reproductions(conn)
 
             
