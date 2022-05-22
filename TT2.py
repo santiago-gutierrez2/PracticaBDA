@@ -18,6 +18,7 @@ import psycopg2.errorcodes
 import psycopg2.extensions
 
 
+
 ## ------------------------------------------------------------
 def connect_db():
     try:
@@ -99,6 +100,61 @@ def show_song(conn, control_tx=True):
             if control_tx:
                 conn.rollback()
             return None
+## ------------------------------------------------------------
+
+
+
+
+##-------------------------------------------------------------
+#- mostrar un álbum con todas sus canciones por su código por su codigo
+def show_album(conn, control_tx=True):
+    try:
+        cod_alb = int(input("Código álbum: "))
+    except:
+        print("Error: datos inválidos")
+        return None
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        try:
+            cur.execute("Select cod_alb, titulo, ano_creacion, cod_art_owner from album where cod_alb= %(cod_alb)s",{'cod_alb': cod_alb})
+            row=cur.fetchone()
+            value = None
+            if row:
+                print(f"Título: {row['titulo']}, ano de creación: {row['ano_creacion']}, "
+                        f"Código de artista que realizou o albúm: {row['cod_art_owner']}")
+                value = row['cod_alb']
+            else:
+                print(f"Non existe ningún álbum por este código: {cod_alb}")
+
+
+            cur.execute("Select cod_song, titulo, duracion, ano_creacion, explicito, num_reproducciones, xenero, cod_album from cancion where cod_album=%(cod_alb)s",{'cod_alb': cod_alb})
+            records=cur.fetchall()
+            cantidad = 0
+            for row in records:
+                print(f"Título: {row['titulo']}, Duración(seg): {row['duracion']}, Año creación: {row['ano_creacion']}, "
+                        f"Explícito: {row['explicito']}, Numero de reproducciones: {row['num_reproducciones']}, "
+                        f"Género: {row['xenero']}, Album al que pertenece: {row['cod_album']}")
+                cantidad = cantidad + 1
+            if(cantidad > 0):
+                print(f"Total de cancions que conten o álbum: {cantidad}")
+            else:
+                print(f"Non existe ningunha cáncion que pertenza a este album: {cod_alb}")
+
+            if control_tx:
+                conn.commit()
+            return value
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
+                print("Erro: Tabla ALBUM non existe")
+            else:
+                print(f"Erro xenérico: {e.pgcode}: {e.pgerror}")
+            if control_tx:
+                conn.rollback()
+            return None
+#--------------------------------------------------------------
+
+
+
+
 
 ##-------------------------------------------------------------
 #-insertar una cancion
@@ -235,6 +291,12 @@ q - Saír
             insert_cancion(conn)
         elif tecla == '4':
             update_verfication_artist(conn)
+        elif tecla == '3':
+            show_album(conn)
+        elif tecla == '4':
+            insert_row_artista(conn)
+        elif tecla == '6':
+            update_num_reproductions(conn)
 
             
             
