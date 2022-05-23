@@ -11,6 +11,8 @@
 from distutils.log import error
 import errno
 import imp
+from os import abort
+from re import S
 from smtplib import SMTPDataError
 from sqlite3 import Date, Row
 import datetime
@@ -168,29 +170,29 @@ def show_album(conn, control_tx=True):
 
 ##-------------------------------------------------------------
 #-insertar una cancion
-def insert_cancion(conn, control_tx=True, cod_album = None):
+def insert_cancion(conn, control_tx=True, cod_album = None, cod_artista = None):
 
     if control_tx:
          conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
 
     #codigo
-    scod = input("Código: ")
+    scod = input("Código de la Cancion: ")
     cod = None if scod=="" else int(scod)
     #titulo
-    titulo = input("Título: ")
+    titulo = input("Título de la Cancion: ")
     if titulo=="" : titulo=None
     #duracion
-    sdur = input("Duracion(segundos): ")
+    sdur = input("Duracion(segundos) de la cancion: ")
     dur = None if sdur=="" else int(sdur)
     #ano creación
-    sAno = input("Año creación: ")
+    sAno = input("Año creación de la Cancion: ")
     ano = None if sAno=="" else int(scod)
     #explicito
     explicito = False
     sexp = input("Explicito? (y = yes, default = no): ")
     explicito = True if sexp=='y' else explicito
     #num_reproducciones 
-    srepro = input("numero reproducciones: ")
+    srepro = input("numero reproducciones de la Cancion: ")
     repro = None
     try:
         repro = None if srepro=="" else int(srepro)
@@ -198,11 +200,12 @@ def insert_cancion(conn, control_tx=True, cod_album = None):
         print("datos invalidos")
         return None
     #xenero
-    genero = input("Genero (max 20 caracteres): ")
+    genero = input("Genero (max 20 caracteres) de la cancion: ")
     if genero=="" : genero=None
-    #cod_album
-    scod_artista = input("Codigo de artista al que pertence: ")
-    cod_artista = None if scod_artista=="" else int(scod_artista)
+    #cod_artista
+    if cod_artista is None:
+        scod_artista = input("Codigo de artista al que pertence: ")
+        cod_artista = None if scod_artista=="" else int(scod_artista)
 
     sentencia_insert_song = """insert into cancion(cod_song, titulo, duracion, ano_creacion, explicito, num_reproducciones,
                         xenero, cod_album, cod_artist) values(%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
@@ -210,9 +213,9 @@ def insert_cancion(conn, control_tx=True, cod_album = None):
     with conn.cursor() as cur:
         try:
             cur.execute(sentencia_insert_song,(cod, titulo, dur, ano, explicito, repro, genero, cod_album, cod_artista))
-            print("Canción creada correctamente.")
             if control_tx:
                 conn.commit()
+                print("Canción creada correctamente.")
         except psycopg2.Error as e:
             if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
                 print("Error: la tabla no existe.")
@@ -237,6 +240,8 @@ def insert_cancion(conn, control_tx=True, cod_album = None):
                 print(f"Error genérico: {e.pgcode}: {e.pgerror}")
             if control_tx:
                 conn.rollback()
+                return
+            raise 
 
 ## ------------------------------------------------------------
 #- Update del estado de verificación de un artista
@@ -385,6 +390,73 @@ def update_num_reproductions(conn):
             else:
                 print(f"Erro xenerico {e.pgcode}: {e.pgerror}")
 
+
+##-------------------------------------------------------------
+#- Crear un album y sus canciones
+def create_album(conn):
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
+
+    #pedir datos del album
+    scod_alb = input("Codigo album: ")
+    cod_alb = None if scod_alb=="" else int(scod_alb)
+    titulo = input("Titulo (max 50 caracteres): ")
+    sano_creacion = input("Año de creación: ")
+    ano_creacion = None if sano_creacion=="" else int(sano_creacion)
+    scod_art = input("Codigo del artista: ")
+    cod_art = None if scod_art=="" else int(scod_art)
+    
+    sentencia_insert_album = """insert into album(cod_alb,titulo,ano_creacion,cod_art_owner)
+                                values (%(cod_alb)s, %(titulo)s, %(ano_creacion)s, %(cod_art)s)"""
+    
+
+    with conn.cursor() as cur:
+        try:
+            cur.execute(sentencia_insert_album,{'cod_alb':cod_alb,'titulo':titulo,'ano_creacion':ano_creacion,'cod_art':cod_art})
+            snum_canciones = input("Numero de canciones del album: ")
+            num_canciones = None if snum_canciones=="" else int(snum_canciones)
+            for i in range(num_canciones):
+                try:
+                    insert_cancion(conn, False, cod_alb, cod_art)
+                except:
+                    print("Abortando la creación del album...")
+                    conn.rollback()
+                    return
+            conn.commit()
+            print("Album creado correctamente")
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
+                print("Erro: Taboa ALBUM non existe")
+            elif e.pgcode == psycopg2.errorcodes.UNIQUE_VIOLATION:
+                if '"cod_art"' in e.pgerror:
+                    print("Error: Ya existe un album con este codigo")
+                else:
+                    print("Error: Ya existe un album con este titulo")
+            elif e.pgcode == psycopg2.errorcodes.FOREIGN_KEY_VIOLATION:
+                print("Error: el artista ingresado no existe")
+            else:
+                print(f"Error generico: {e.pgcode}: {e.pgerror}")
+            conn.rollback()
+
+##-------------------------------------------------------------
+#-delete album
+def delete_artist(conn):
+    
+    scod = input("Codigo del artista a borrar: ")
+    cod = None if scod=="" else int(scod)
+
+    with conn.cursor() as cur:
+        try:
+            cur.execute("DELETE from artista where cod_art = %s",(cod,))
+            conn.commit()
+            if cur.rowcount == 0:
+                print(f"No se borro ningun artista con código: {cod}")
+            else:
+                print("Artista borrado correctamente.")
+        except psycopg2.Error as e:
+            if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
+                print("Error: tabla ARTISTA no existe.")
+            conn.rollback() 
+
 ## ------------------------------------------------------------
 def menu(conn):
     """
@@ -396,11 +468,12 @@ def menu(conn):
 1 - Info de artista
 2 - Info de cancion
 3 - Insertar canción
-4 - Actuaizar estado de verificación de un artista
+4 - Actualizar estado de verificación de un artista
 5 - Mostrar Album (con canciones)
 6 - Insertar artista
 7 - Actualizar numero de reproducciones (según datos actuales)
 8 - Crear Album (con canciones)
+9 - Borrar artista
 q - Saír   
 """
     while True:
@@ -422,6 +495,10 @@ q - Saír
             insert_row_artista(conn)
         elif tecla == '7':
             update_num_reproductions(conn)
+        elif tecla == '8':
+            create_album(conn)
+        elif tecla == '9':
+            delete_artist(conn)
 
             
             
