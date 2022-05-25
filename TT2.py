@@ -43,6 +43,9 @@ def disconnect_db(conn):
 ##-------------------------------------------------------------
 #- mostrar un artista por su codigo
 def show_artista(conn, control_tx=True):
+
+    if control_tx:
+        conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
     try:
         cod_art = int(input("Código artista: "))
     except:
