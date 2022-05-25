@@ -37,20 +37,3 @@ create table cancion(
     constraint fk_artista FOREIGN key(cod_artist)
         references artista(cod_art) on delete cascade on update cascade
 );
-
-
--- Insert de Artistas
-Insert into artista values(1, 'Santi', True, '14-02-2000', 'Maracaibo');
-Insert into artista values(2, 'adrian', True, '14-02-2000');
-Insert into artista values(3, 'mosqueira', false, null,'coruña');
-
---Insert de álbums
-Insert into album values(1, 'Veneco Sons', 2015, 1);
-Insert into album values(2, 'Viva skape', 2021, 1);
-Insert into album values(3, 'Gasolina', 2007, 2);
-
---Insert de canciones
-Insert into cancion values(1, 'Time', 360, 1975, false, 1000, 'Rock psicodelico',1 , 1);
-Insert into cancion values(2, 'Money', 360, 1973, True, null, null , null, 1);
-Insert into cancion values(3, 'I love Money and Cocaine', 300, 1950, true, 500, 'Rock psicodelico',1, 1);
-Insert into cancion values(4, 'Maduro mi presidente', 360, 1985, false, 1000, 'Rock psicodelico',1, 1);
