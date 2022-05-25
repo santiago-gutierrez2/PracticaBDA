@@ -473,7 +473,7 @@ def menu(conn):
 6 - Insertar artista
 7 - Actualizar numero de reproducciones (según datos actuales)
 8 - Crear Album (con canciones)
-9 - Borrar artista
+9 - Borrar artista (se borraran todos sus albums y singles)
 q - Saír   
 """
     while True:
