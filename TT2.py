@@ -368,8 +368,8 @@ def insert_row_artista(conn):
 ## ------------------------------------------------------------
 def update_num_reproductions(conn): 
     
-    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED
-    ## Aquí ellos lo que hacen es llamar a ver fila y para que muestre los datos actuales al ususario y obtener el codigo del artista
+    conn.isolation_level = psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE
+    
     cod = show_song(conn, False)
 
     if cod is None:
@@ -458,6 +458,8 @@ def delete_artist(conn):
         except psycopg2.Error as e:
             if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE:
                 print("Error: tabla ARTISTA no existe.")
+            else:
+                print(f"Error genérico: {e.pgcode}: {e.pgerror}")
             conn.rollback() 
 
 ## ------------------------------------------------------------
